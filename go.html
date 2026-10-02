@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Open in Versy</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #06202A; color: #fff; font: 17px/1.5 -apple-system, system-ui, sans-serif; text-align: center; }
+  main { padding: 32px 24px; max-width: 420px; }
+  h1 { font-size: 40px; letter-spacing: 1px; margin: 0 0 8px; color: #22FC8F; }
+  p { color: #8EAEC2; margin: 0 0 24px; }
+  a.btn { display: inline-block; background: #22FC8F; color: #06202A; font-weight: 700; text-decoration: none; padding: 14px 28px; border-radius: 999px; margin: 6px; }
+  a.ghost { background: transparent; color: #22FC8F; border: 1px solid #22FC8F; }
+</style>
+</head>
+<body>
+<main>
+  <h1>VERSY</h1>
+  <p id="msg">Opening in Versy…</p>
+  <a class="btn" id="open" href="#">Open in Versy</a>
+  <a class="btn ghost" href="https://apps.apple.com/" id="store">Get Versy</a>
+</main>
+<script>
+  // A shared link lands here; the app opens by its scheme when it is installed. The store link is filled in once
+  // Versy is on the App Store (docs/APP_STORE.md); until then it stays a plain Apple link.
+  var to = new URLSearchParams(location.search).get('to') || '/';
+  if (!/^\/[a-z0-9_\-\/]*$/i.test(to)) to = '/';
+  var deep = 'versy:/' + to;
+  document.getElementById('open').href = deep;
+  var t = setTimeout(function () { document.getElementById('msg').textContent = 'Versy is not installed on this device yet.'; }, 1500);
+  window.addEventListener('pagehide', function () { clearTimeout(t); });
+  location.href = deep;
+</script>
+</body>
+</html>
