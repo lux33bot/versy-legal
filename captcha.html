@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Versy</title>
+<!--
+  The invisible CAPTCHA for the Versy app (app/src/lib/captcha.ts, features/auth/CaptchaHost.tsx): the app loads this
+  page in a hidden web view as captcha.html?sitekey=<Turnstile site key>. An Invisible-mode Cloudflare Turnstile widget
+  runs, and its single-use token (good for 5 minutes) goes back to the app, which sends it with the sign-in request;
+  Supabase Auth checks it with Cloudflare. Nothing here is shown to anyone. The site key is public by design; the
+  secret key lives only in Supabase (SETUP 4e). This page's host must be in the widget's hostname list.
+-->
+<script>
+  function send(o) { try { window.ReactNativeWebView.postMessage(JSON.stringify(o)); } catch (e) { /* not in the app */ } }
+  function versyCaptcha() {
+    var key = new URLSearchParams(location.search).get('sitekey');
+    if (!key) { send({ error: 'no-sitekey' }); return; }
+    turnstile.render('#t', {
+      sitekey: key,
+      callback: function (token) { send({ token: token }); },
+      'error-callback': function (code) { send({ error: String(code || 'error') }); },
+      'expired-callback': function () { send({ error: 'expired' }); }
+    });
+  }
+  setTimeout(function () { if (!window.turnstile) send({ error: 'script' }); }, 12000);
+</script>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=versyCaptcha" async defer></script>
+</head>
+<body style="margin:0;background:#04161d">
+<div id="t"></div>
+</body>
+</html>
