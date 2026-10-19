@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Versy</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #06202A; color: #fff; font: 17px/1.5 -apple-system, system-ui, sans-serif; text-align: center; }
+  main { padding: 32px 24px; max-width: 420px; }
+  h1 { font-size: 40px; letter-spacing: 1px; margin: 0 0 8px; color: #22FC8F; }
+  p { color: #8EAEC2; margin: 0 0 24px; }
+  a { color: #22FC8F; }
+</style>
+</head>
+<body>
+<main>
+  <h1>VERSY</h1>
+  <p id="msg">This page doesn’t exist.</p>
+  <a id="home" href="./">Versy</a>
+</main>
+<script>
+  // 0090: direct links (https://<domain>/entry/<id>, off until Versy has its own domain — SETUP → Direct links). The
+  // phone opens the app straight from such a link once the domain vouches for it; a browser lands here (GitHub Pages
+  // serves this page for any address it doesn't have) and goes on to go.html, which opens the app or offers it.
+  // On a github.io project site the first folder is the site's own (/versy-legal); on a domain the site is the root.
+  var first = location.pathname.split('/')[1] || '';
+  var base = /\.github\.io$/i.test(location.hostname) && first ? '/' + first : '';
+  var path = location.pathname.slice(base.length).replace(/\/$/, '');
+  document.getElementById('home').href = base + '/';
+  if (/^\/(entry|user|category|challenge)\/[A-Za-z0-9_-]{1,64}$/.test(path)) {
+    var ref = new URLSearchParams(location.search).get('ref');
+    location.replace(base + '/go.html?to=' + encodeURIComponent(path) + (ref && /^[0-9a-f]{12}$/i.test(ref) ? '&ref=' + ref.toLowerCase() : ''));
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,1 @@
+window.VERSY = { url: "https://ubnhdpwxojrtpxjywfbk.supabase.co", key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVibmhkcHd4b2pydHB4anl3ZmJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA3ODI0ODIsImV4cCI6MjEwNjM1ODQ4Mn0.EPhCm9xbh7gVJwr2uzYJgzH4kOqQn3hWUK-Hf1lJxyM" };

@@ -4,32 +4,117 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Open in Versy</title>
+<meta name="description" content="Head-to-head contests: enter, vote, win the day.">
 <style>
   :root { color-scheme: dark; }
   body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #06202A; color: #fff; font: 17px/1.5 -apple-system, system-ui, sans-serif; text-align: center; }
-  main { padding: 32px 24px; max-width: 420px; }
+  main { padding: 32px 24px; max-width: 420px; width: 100%; box-sizing: border-box; }
   h1 { font-size: 40px; letter-spacing: 1px; margin: 0 0 8px; color: #22FC8F; }
   p { color: #8EAEC2; margin: 0 0 24px; }
   a.btn { display: inline-block; background: #22FC8F; color: #06202A; font-weight: 700; text-decoration: none; padding: 14px 28px; border-radius: 999px; margin: 6px; }
   a.ghost { background: transparent; color: #22FC8F; border: 1px solid #22FC8F; }
+  /* 0090: the preview of what was shared (web_card) — a public adult's passed entry or profile */
+  #card { margin: 0 0 20px; }
+  #card[hidden] { display: none; }
+  .poster { position: relative; width: 100%; max-width: 320px; aspect-ratio: 4 / 5; margin: 0 auto 12px; border-radius: 16px; overflow: hidden; background: #0B3442; }
+  .poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .badge { position: absolute; top: 10px; left: 10px; background: #22FC8F; color: #06202A; font-weight: 800; font-size: 12px; letter-spacing: 1px; padding: 4px 10px; border-radius: 999px; }
+  .play { position: absolute; right: 10px; bottom: 10px; background: rgba(6, 32, 42, .75); color: #fff; font-size: 12px; padding: 4px 10px; border-radius: 999px; }
+  .title { color: #fff; font-weight: 800; font-size: 22px; line-height: 1.25; margin: 0 0 4px; overflow-wrap: anywhere; }
+  .meta { color: #8EAEC2; font-size: 15px; margin: 0; overflow-wrap: anywhere; }
+  .avatar { width: 84px; height: 84px; border-radius: 50%; object-fit: cover; display: block; margin: 0 auto 10px; background: #0B3442; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 16px 0 0; }
+  .grid a { position: relative; display: block; aspect-ratio: 4 / 5; border-radius: 10px; overflow: hidden; background: #0B3442; }
+  .grid img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .grid .badge { top: 6px; left: 6px; font-size: 10px; padding: 2px 7px; }
 </style>
 </head>
 <body>
 <main>
   <h1>VERSY</h1>
+  <section id="card" hidden aria-live="polite"></section>
   <p id="msg">Opening in Versy…</p>
   <a class="btn" id="open" href="#">Open in Versy</a>
   <a class="btn ghost" href="https://apps.apple.com/" id="store">Get Versy</a>
 </main>
+<!-- 0090: Supabase's address and public key for the preview, written by tools/publish-web.sh from app/.env; without it
+     the page works as before, with no preview -->
+<script src="config.js"></script>
 <script>
   // A shared link lands here; the app opens by its scheme when it is installed. The store link is filled in once
   // Versy is on the App Store (docs/APP_STORE.md); until then it stays a plain Apple link.
-  var to = new URLSearchParams(location.search).get('to') || '/';
+  var q = new URLSearchParams(location.search);
+  var to = q.get('to') || '/';
   if (!/^\/[a-z0-9_\-\/]*$/i.test(to)) to = '/';
   var deep = 'versy:/' + to;
+  // 0078: the sharer's invite code rides along to the app, so a new account that signs up from this link credits them
+  var ref = q.get('ref');
+  if (ref && /^[0-9a-f]{12}$/i.test(ref)) ref = ref.toLowerCase(); else ref = null;
+  if (ref) deep += '?ref=' + ref;
   document.getElementById('open').href = deep;
-  var t = setTimeout(function () { document.getElementById('msg').textContent = 'Versy is not installed on this device yet.'; }, 1500);
+  // 0090: on Android, Get Versy goes to Google Play with the link in Play's referrer, so the app can open it (and credit
+  // the invite) right after installing (lib/installReferrer, from the 0.1.5 build)
+  if (/Android/i.test(navigator.userAgent)) {
+    document.getElementById('store').href = 'https://play.google.com/store/apps/details?id=com.monkeyhead.versy&referrer=' +
+      encodeURIComponent('to=' + to + (ref ? '&ref=' + ref : ''));
+  }
+  var t = setTimeout(function () { document.getElementById('msg').textContent = 'Versy is not installed on this device yet. Get it, then come back to this page and tap Open in Versy.'; }, 1500);
   window.addEventListener('pagehide', function () { clearTimeout(t); });
+
+  // 0090: a preview of what was shared, when the server allows one (web_card: a public adult's passed contest entry or
+  // profile; nothing for anyone under 18, private or unknown age). Built with textContent only — nothing from the server
+  // is ever read as HTML — and pictures only from Versy's own storage or Mux.
+  (function preview() {
+    var cfg = window.VERSY;   // (http only for the local test rig, tools/linkpage.mjs; publish-web.sh writes https)
+    var m = /^\/(entry|user)\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?$/i.exec(to);
+    if (!m || !cfg || typeof cfg.url !== 'string' || typeof cfg.key !== 'string' || !/^(https:\/\/[a-z0-9.-]+|http:\/\/127\.0\.0\.1:\d+)$/i.test(cfg.url) || !window.fetch) return;
+    var picOk = function (u) {
+      return typeof u === 'string' && (u.indexOf(cfg.url + '/storage/v1/object/public/') === 0 || u.indexOf('https://image.mux.com/') === 0);
+    };
+    var el = function (tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = String(text); return e; };
+    var img = function (u, alt, cls) { var i = el('img', cls); i.src = u; i.alt = alt; i.loading = 'lazy'; i.referrerPolicy = 'no-referrer'; return i; };
+    var headers = { 'apikey': cfg.key, 'Content-Type': 'application/json' };
+    if (/^eyJ/.test(cfg.key)) headers.Authorization = 'Bearer ' + cfg.key;   // a legacy anon key is a JWT; a publishable key goes as apikey only
+    fetch(cfg.url + '/rest/v1/rpc/web_card', { method: 'POST', headers: headers, body: JSON.stringify({ p_kind: m[1].toLowerCase(), p_id: m[2].toLowerCase() }) })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (c) {
+        if (!c || typeof c !== 'object' || typeof c.handle !== 'string') return;
+        var card = document.getElementById('card');
+        if (c.kind === 'entry' && picOk(c.poster)) {
+          var box = el('div', 'poster');
+          box.appendChild(img(c.poster, (c.title || 'Entry') + ' by @' + c.handle));
+          if (c.won === true) box.appendChild(el('span', 'badge', 'DAILY WINNER'));
+          if (c.video === true) box.appendChild(el('span', 'play', 'Video'));
+          card.appendChild(box);
+          card.appendChild(el('p', 'title', c.title || c.challenge || 'Versy entry'));
+          card.appendChild(el('p', 'meta', '@' + c.handle + (c.challenge ? ' · ' + c.challenge : '') + (c.category ? ' · ' + c.category : '')));
+          document.title = (c.title || c.challenge || 'Entry') + ' by @' + c.handle + ' · Versy';
+        } else if (c.kind === 'user') {
+          if (picOk(c.avatar)) card.appendChild(img(c.avatar, '@' + c.handle, 'avatar'));
+          card.appendChild(el('p', 'title', c.name || '@' + c.handle));
+          var crowns = typeof c.crowns === 'number' && c.crowns > 0 ? ' · ' + c.crowns + (c.crowns === 1 ? ' crown' : ' crowns') : '';
+          card.appendChild(el('p', 'meta', '@' + c.handle + crowns));
+          var list = Array.isArray(c.entries) ? c.entries : [];
+          var grid = el('div', 'grid');
+          list.slice(0, 6).forEach(function (x) {
+            if (!x || !picOk(x.poster) || !/^[0-9a-f-]{36}$/i.test(String(x.id))) return;
+            var a = el('a');
+            a.href = 'go.html?to=' + encodeURIComponent('/entry/' + String(x.id).toLowerCase()) + (ref ? '&ref=' + ref : '');
+            a.setAttribute('aria-label', (x.title || 'Entry') + (x.won === true ? ', daily winner' : ''));
+            a.appendChild(img(x.poster, ''));
+            if (x.won === true) a.appendChild(el('span', 'badge', 'WON'));
+            grid.appendChild(a);
+          });
+          if (grid.childNodes.length) card.appendChild(grid);
+          document.title = '@' + c.handle + ' on Versy';
+        } else {
+          return;
+        }
+        card.hidden = false;
+      })
+      .catch(function () { /* no preview: the page still opens the app */ });
+  })();
+
   location.href = deep;
 </script>
 </body>
